@@ -1,6 +1,7 @@
 #include "bi2x_hook.h"
 
 #include <cstdint>
+#include <windows.h>
 #include "util/detour.h"
 #include "util/logging.h"
 #include "util/utils.h"
@@ -16,6 +17,12 @@
 namespace games::sdvx {
     constexpr bool BI2X_PASSTHROUGH = false;
     bool BI2X_INITIALIZED = false;
+
+    /*
+     * shared memory
+     */
+    HANDLE hMapFile;
+    LPVOID lpBase;
 
     /*
      * class definitions
@@ -312,9 +319,15 @@ namespace games::sdvx {
                 { 86, Lights::V_UNIT_AVG_R, Lights::V_UNIT_AVG_G, Lights::V_UNIT_AVG_B },
         };
 
+        // offset value of each strips in shared memory
+        int TapeLedDataOffset[10] = { 0 * 3, 74 * 3, 86 * 3, 98 * 3, 154 * 3, 210 * 3, 304 * 3, 316 * 3, 328 * 3, 342 * 3 };
+
         // check index bounds
         if (tapeledutils::is_enabled() && index < std::size(mapping)) {
             auto &map = mapping[index];
+
+            // write the lights into shared memory
+            memcpy(lpBase + TapeLedDataOffset[index], data, map.data_size * 3);
 
             // pick a color to use
             const auto rgb = tapeledutils::pick_color_from_led_tape(data, map.data_size);
@@ -379,6 +392,24 @@ namespace games::sdvx {
 
         // announce
         log_info("bi2x_hook", "init");
+
+        // init shared memory
+        hMapFile = CreateFileMapping(
+                            INVALID_HANDLE_VALUE,
+                            NULL,
+                            PAGE_READWRITE,
+                            0,
+                            1284,   // buffer size
+                            "sdvxrgb"
+        );
+        lpBase = MapViewOfFile(
+                        hMapFile,
+                        FILE_MAP_ALL_ACCESS,
+                        0,
+                        0,
+                        1284   // buffer size
+        );
+        log_info("rgb_shared_memory", "opened");
 
         // hook IOB2 video
         const auto libaioIob2VideoDll = "libaio-iob2_video.dll";
