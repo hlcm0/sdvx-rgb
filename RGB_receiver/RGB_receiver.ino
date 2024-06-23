@@ -22,7 +22,11 @@ uint8_t usb_buffer[DATA_SIZE];
 int transfer_cplt_flag = 0;
 
 void setup() {
-  // start pio state machine
+  // begin watchdog
+  // reset after 100ms
+  rp2040.wdt_begin(1000);
+
+  // init pio state machine for RGB
   neopixel_init(TapeLedPin[0]);
 
   // start HID
@@ -41,6 +45,9 @@ void setup() {
 }
 
 void loop() {
+  // reset watchdog
+  rp2040.wdt_reset();
+
   if (transfer_cplt_flag) {
     transfer_cplt_flag = 0;
     for (int i = 0; i < 10; i++)
