@@ -19,7 +19,6 @@ const int pid = 0x1234; // product id
 
 // program variables
 int openFailedCounter;
-const int timeout = 100; // waiting 100 seconds before exit.
 
 static void Delay(int time)
 {
@@ -42,46 +41,33 @@ static void closeSharedMemory()
 	CloseHandle(hMapFile);
 }
 
-static void exitFunction()
+static void closeHID()
 {
-	printf("[Exit]\nCleaning up...");
 	if (handle) hid_close(handle);
 	hid_exit();
-	printf("Done");
-	exit(0);
-}
-
-static BOOL WINAPI ctrlHandler(DWORD dwCtrlType)
-{
-	switch (dwCtrlType)
-	{
-	case CTRL_C_EVENT:
-	case CTRL_BREAK_EVENT:
-	case CTRL_CLOSE_EVENT:
-	case CTRL_LOGOFF_EVENT:
-	case CTRL_SHUTDOWN_EVENT:
-		exitFunction();
-		break;
-	}
-	return 0;
+	printf("HID cleaned\n");
 }
 
 int main() {
-	SetConsoleCtrlHandler(ctrlHandler, TRUE);
+beginning:
+	openFailedCounter = 1;
+	system("cls");
 	// open hid device
 	int res;
 	res = hid_init(); // initialize the hidapi
 	if (res)
 	{
 		printf("Unable initialize hidapi, code: %d\n", res);
+		Delay(5000);
 		return 0;
 	}
 	handle = hid_open(vid, pid, NULL);
 	if (!handle)
 	{
-		printf("Unable to open device\n");
-		Delay(2000);
-		return 0;
+		printf("Please plug in the device\n");
+		Delay(1000);
+		closeHID();
+		goto beginning;
 	}
 
 	Delay(1000);
@@ -110,7 +96,13 @@ int main() {
 				buf[1] = i;
 				memcpy(buf + 2, lightData + i * 63, sendSize);
 				res = hid_write(handle, buf, 65);
-				if (res == -1) printf("Unable to send data, code: %d\n", res);
+				if (res == -1)
+				{
+					printf("Unable to send data, code: %d, return to the beginning\n", res);
+					closeHID();
+					closeSharedMemory();
+					goto beginning;
+				}
 			}
 		}
 		else
@@ -123,8 +115,7 @@ int main() {
 			}
 
 			// wait for shared memory
-			if (openFailedCounter > timeout) return 0; // exit after waiting some time
-			printf("[ %03d ] Waiting for shared memory to be created.\n",openFailedCounter);
+			printf("[ %03d ] Waiting for shared memory to be created\n",openFailedCounter%101);
 			openFailedCounter++;
 			Delay(1000);
 		}
