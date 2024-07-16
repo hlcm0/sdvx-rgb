@@ -2,6 +2,9 @@
 #include "neopixel.h"
 #include "report.h"
 
+// status led
+#define STATUS_LED 26
+
 // data size of rgb
 const int DATA_SIZE = 1284;
 
@@ -13,6 +16,7 @@ const int TapeLedPin[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 
 uint8_t brightness = 255;
 uint8_t rgb_data[DATA_SIZE];
+unsigned long last_time_receive;
 
 /* USB */
 // desc report, desc len, protocol, interval, use out endpoint
@@ -24,10 +28,12 @@ int transfer_cplt_flag = 0;
 void setup() {
   // begin watchdog
   // reset after 100ms
+  pinMode(STATUS_LED, OUTPUT);
   rp2040.wdt_begin(1000);
 
-  // init pio state machine for RGB
+  // init pio state machine for RGB and turn off all strips
   neopixel_init(TapeLedPin[0]);
+  turn_off_all_strips();
 
   // start HID
   #if defined(ARDUINO_ARCH_MBED) && defined(ARDUINO_ARCH_RP2040)
@@ -48,7 +54,20 @@ void loop() {
   // reset watchdog
   rp2040.wdt_reset();
 
+  // turn off all strips if we are not receiving data
+  if (millis()-last_time_receive > 500)
+  {
+    turn_off_all_strips();
+    digitalWrite(STATUS_LED,LOW);
+  }
+  else
+  {
+    digitalWrite(STATUS_LED,HIGH);
+  }
+
+  // if we received one frame, show it
   if (transfer_cplt_flag) {
+    last_time_receive = millis();
     transfer_cplt_flag = 0;
     for (int i = 0; i < 10; i++)
     {
@@ -62,6 +81,21 @@ void loop() {
       neopixel_set_pin(TapeLedPin[i]);
       neopixel_set_pixels(buf, TapeLedNum[i]);
     }
+  }
+}
+
+void turn_off_all_strips()
+{
+  for (int i = 0; i < 10; i++)
+  {
+    uint32_t buf[100];
+    for (int j = 0; j < TapeLedNum[i]; j++)
+    {
+      buf[j] = 0;
+    }
+    delayMicroseconds(300);
+    neopixel_set_pin(TapeLedPin[i]);
+    neopixel_set_pixels(buf, TapeLedNum[i]);
   }
 }
 
@@ -83,7 +117,6 @@ void set_report_callback(uint8_t report_id, hid_report_type_t report_type, uint8
   // This example doesn't use multiple report and report ID
   (void)report_id;
   (void)report_type;
-  //usb_hid.sendReport(0, buffer, 64);
   if (buffer[0] != 20) {
     memcpy(usb_buffer + buffer[0] * 63, buffer + 1, 63);
   } else {
