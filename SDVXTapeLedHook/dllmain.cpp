@@ -6,6 +6,25 @@
 HANDLE hMapFile;
 uint8_t* lpBase = nullptr;
 
+/*
+* index mapping
+*
+* 0 - title - 222 bytes - 74 colors
+* 1 - upper left speaker - 36 bytes - 12 colors
+* 2 - upper right speaker - 36 bytes - 12 colors
+* 3 - left wing - 168 bytes - 56 colors
+* 4 - right wing - 168 bytes - 56 colors
+* 5 - control panel - 282 bytes - 94 colors
+* 6 - lower left speaker - 36 bytes - 12 colors
+* 7 - lower right speaker - 36 bytes - 12 colors
+* 8 - woofer - 42 bytes - 14 colors
+* 9 - v unit - 258 bytes - 86 colors
+*
+* data is stored in RGB order, 3 bytes per color
+*
+*/
+
+// Offset and count of each tape led data in shared memory
 int TapeLedDataOffset[10] = { 0 * 3, 74 * 3, 86 * 3, 98 * 3, 154 * 3, 210 * 3, 304 * 3, 316 * 3, 328 * 3, 342 * 3 };
 int TapeLedDataCount[10] = { 74 * 3, 12 * 3, 12 * 3, 56 * 3, 56 * 3, 94 * 3, 12 * 3, 12 * 3, 14 * 3, 86 * 3 };
 
